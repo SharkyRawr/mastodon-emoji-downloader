@@ -5,9 +5,11 @@ from requests import get
 from typing import List, Dict
 import argparse
 import os
+from tqdm import tqdm
 
 args = argparse.ArgumentParser("snatch-emojis")
-args.add_argument('--instance', '-i', nargs=1, required=True, help='instance to download all emojis from')
+args.add_argument('--instance', '-i', nargs=1, required=True,
+                  help='instance to download all emojis from')
 
 URL_GET_EMOJIS = r'https://{instance}/api/v1/custom_emojis'
 
@@ -41,7 +43,8 @@ def slugify(value):
     Normalizes string, converts to lowercase, removes non-alpha characters,
     and converts spaces to hyphens.
     """
-    import unicodedata, re
+    import unicodedata
+    import re
     value = unicodedata.normalize('NFKD', value)
     value = str(re.sub('[^\w\s-]', '', value).strip().lower())
     value = str(re.sub('[-\s]+', '-', value))
@@ -63,15 +66,21 @@ def download_emoji(instance: str, emoji: Emoji):
     outname = slugify(emoji.shortcode.replace(':', ''))
     _, filext = p.splitext(emoji.url)
     category = slugify(emoji.category)
-    
+
+    outdir = p.join(instance, category)
+    outfile = p.join(outdir, outname) + f"{filext}"
+
+    if p.isfile(outfile):
+        # no need to download again
+        return
+
+    if not p.lexists(outdir) or not p.isdir(outdir):
+        os.mkdir(outdir)
+
     r = get(emoji.url)
     r.raise_for_status()
 
-    outdir = p.join(instance, category)
-    if not p.lexists(outdir) or not p.isdir(outdir):
-        os.mkdir(outdir)
-    
-    with open(p.join(outdir, outname) + f"{filext}", 'wb') as f:
+    with open(outfile, 'wb') as f:
         f.write(r.content)
 
 
@@ -80,9 +89,11 @@ def main(p):
     e = get_emojis(instance)
     emojis = [Emoji(i) for i in e]
 
-    for emoji in emojis:
-        print(emoji)
-        download_emoji(instance, emoji)
+    with tqdm(unit='emojis', total=len(emojis)) as pb:
+        for emoji in emojis:
+            pb.update()
+            pb.write(str(emoji))
+            download_emoji(instance, emoji)
 
 
 if __name__ == '__main__':
