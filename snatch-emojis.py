@@ -3,7 +3,11 @@
 from os.path import isdir
 from requests import get
 from typing import List, Dict
+import argparse
 import os
+
+args = argparse.ArgumentParser("snatch-emojis")
+args.add_argument('--instance', '-i', nargs=1, required=True, help='instance to download all emojis from')
 
 URL_GET_EMOJIS = r'https://{instance}/api/v1/custom_emojis'
 
@@ -71,14 +75,16 @@ def download_emoji(instance: str, emoji: Emoji):
         f.write(r.content)
 
 
-def main():
-    e = get_emojis("plush.city")
+def main(p):
+    instance = p.instance[0]
+    e = get_emojis(instance)
     emojis = [Emoji(i) for i in e]
 
     for emoji in emojis:
         print(emoji)
-        download_emoji("plush.city", emoji)
+        download_emoji(instance, emoji)
 
 
 if __name__ == '__main__':
-    main()
+    p = args.parse_args()
+    main(p)
